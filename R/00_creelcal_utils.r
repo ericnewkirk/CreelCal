@@ -120,6 +120,76 @@ gen_survey_times <- function(dates,
 
 }
 
+summarize_daylength <- function(dates,
+                                times,
+                                latitude,
+                                longitude,
+                                after_sunrise,
+                                after_sunset) {
+
+  sun_times <- suncalc::getSunlightTimes(
+    dates$date,
+    latitude,
+    longitude,
+    keep = c("sunrise", "sunset"),
+    tz = Sys.timezone()
+  ) |>
+    dplyr::select(dplyr::all_of(c("sunrise", "sunset"))) |>
+    magrittr::set_names(c("fd_start", "fd_end"))
+
+  survey_times <- times |>
+    dplyr::group_by(.data$date) |>
+    dplyr::summarize(
+      first_count = min(.data$survey_time),
+      last_count = max(.data$survey_time),
+      .groups = "drop"
+    )
+
+  dates |>
+    dplyr::bind_cols(sun_times) |>
+    dplyr::mutate(
+      sd_start = .data$fd_start + lubridate::minutes(after_sunrise),
+      sd_end = .data$fd_end + lubridate::minutes(after_sunset)
+    ) |>
+    dplyr::left_join(survey_times, by = "date") |>
+    dplyr::group_by(.data$stratum) |>
+    dplyr::summarize(
+      sfd = sub("^0", "", format(min(.data$date), "%m/%d/%y")),
+      sld = sub("^0", "", format(max(.data$date), "%m/%d/%y")),
+      fds = average_time(.data$fd_start),
+      fde = average_time(.data$fd_end),
+      fdl = average_duration(.data$fd_start, .data$fd_end),
+      sds = average_time(.data$sd_start),
+      sde = average_time(.data$sd_end),
+      sdl = average_duration(.data$sd_start, .data$sd_end),
+      cdl = average_duration(.data$first_count, .data$last_count, 5),
+      .groups = "drop"
+    ) |>
+    dplyr::select(-dplyr::any_of("stratum"))
+
+}
+
+average_time <- function(times) {
+  avg <- round(
+    mean(
+      lubridate::hour(times) * 60 + lubridate::minute(times),
+      na.rm = TRUE
+    )
+  )
+  sprintf("%d:%02d", avg %/% 60, avg %% 60)
+}
+
+average_duration <- function(starts, ends, rnd_min = 1) {
+  avg <- round(
+    mean(
+      as.numeric(difftime(ends, starts, units = "mins")),
+      na.rm = TRUE
+    )
+  )
+  avg <- round(avg / rnd_min) * rnd_min
+  sprintf("%d:%02d", avg %/% 60, avg %% 60)
+}
+
 # wyoming bounding box as sf object for setting leaflet bounds
 wy_bbox <- sf::st_polygon(list(
   rbind(

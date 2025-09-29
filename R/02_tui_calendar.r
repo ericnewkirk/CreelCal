@@ -73,6 +73,6 @@ survey_times_to_tui <- function(times, tz) {
         paste(format(.data$start, "%R"), .data$location, sep = " - ")
       )
     ) |>
-      dplyr::relocate(dplyr::all_of("title"), .after = 1)
+    dplyr::relocate(dplyr::all_of("title"), .after = 1)
 
 }
