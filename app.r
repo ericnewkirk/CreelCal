@@ -178,7 +178,7 @@ server <- function(input, output, session) {
     )
 
   })
-
+  
   ##############################################################################
   #
   # screen 1 reactivity
