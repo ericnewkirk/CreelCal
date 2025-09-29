@@ -164,6 +164,21 @@ server <- function(input, output, session) {
 
   })
 
+  # table of average day lengths
+  daylength_tbl <- shiny::reactive({
+    shiny::req(date_check(), time_check())
+
+    summarize_daylength(
+      rct$dates,
+      rct$times,
+      rct$lat,
+      rct$lng,
+      input$es,
+      input$ls
+    )
+
+  })
+  
   ##############################################################################
   #
   # screen 1 reactivity
@@ -349,16 +364,16 @@ server <- function(input, output, session) {
       toastui::cal_timezone(rtz()) |>
       toastui::cal_events(
         clickSchedule = htmlwidgets::JS(
-          "function(event) {",
-            "Shiny.setInputValue(
+          "function(event) {
+            Shiny.setInputValue(
               'survey_dates_cal_click',
               {
                 id: event.schedule.id,
                 calendarId: event.schedule.calendarId,
                 start: event.schedule.start._date
               }
-            );",
-          "}"
+            );
+          }"
         )
       )
 
@@ -396,7 +411,7 @@ server <- function(input, output, session) {
 
     ex_value <- rct$dates |>
       dplyr::filter(date == as.Date(input$survey_dates_cal_click$start)) |>
-      dplyr::pull(weekend)
+      dplyr::pull(.data$weekend)
 
     shinyjs::toggle(
       "save_date_cat",
@@ -553,7 +568,7 @@ server <- function(input, output, session) {
         dplyr::mutate(location = NA_character_)
     }
 
-  })
+  }, ignoreNULL = FALSE)
 
   ##############################################################################
   #
@@ -576,11 +591,12 @@ server <- function(input, output, session) {
       paste0(gsub("\\W", "_", input$sname), ".pdf")
     },
     content = function(file) {
-      pdf(file)
-      lapply(calr_plots(rct$dates, rct$times, rtz()), plot)
-      grid::grid.newpage()
-      grid::grid.draw(gridExtra::tableGrob(settings_tbl(), rows = NULL))
-      dev.off()
+      creelcal_pdf(
+        calr_plots(rct$dates, rct$times, rtz()),
+        settings_tbl(),
+        daylength_tbl(),
+        file
+      )
     }
   )
 
