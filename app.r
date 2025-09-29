@@ -568,7 +568,7 @@ server <- function(input, output, session) {
         dplyr::mutate(location = NA_character_)
     }
 
-  })
+  }, ignoreNULL = FALSE)
 
   ##############################################################################
   #
